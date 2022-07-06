@@ -102,7 +102,6 @@ namespace SnapmakerControl
         {
             foreach (var error in errors)
             {
-                Console.WriteLine(error);
                 if (error.Tag == ErrorType.HelpRequestedError ||
                     error.Tag == ErrorType.VersionRequestedError)
                     Environment.Exit(0);
