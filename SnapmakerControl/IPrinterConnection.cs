@@ -18,7 +18,7 @@ namespace SnapmakerControl
         }
         abstract bool IsConnected();
         abstract bool Connect();
-        abstract bool Disconnect();
+        abstract void Disconnect();
         abstract bool MovePrinter(MovementAxis axes, double amount);
     }
 }

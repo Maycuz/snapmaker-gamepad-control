@@ -21,6 +21,8 @@ namespace SnapmakerControl
         public string TargetAddress {  get; }
         
         private readonly HttpClient httpClient = new HttpClient();
+
+        // private const string connectionToken = "5992a781-9082-4ff4-8821-91fa0a0bd545";
         private string? connectionToken = null;
 
         public WirelessPrinterConnection(string targetAddress)
@@ -29,30 +31,33 @@ namespace SnapmakerControl
         }
         public bool Connect()
         {
-            return InternalConnect().Result;
+            return InitialConnect().Result;
         }
 
-        private async Task<bool> InternalConnect()
+        /*
+         * Constructs POST request for initial connect/token and sends to Snapmaker API.
+         */
+        private async Task<bool> InitialConnect()
         {
             var targetUri = "http://" + TargetAddress + ":8080/api/v1/connect";
 
             try
             {
-/*                var response = await httpClient.PostAsync(targetUri, null);
+                /*
+                 * Code commented out below was supposed to receive the token from the Snapmaker API,
+                 * store it and then use it for the GCode execution requests. This did not work as it returned
+                 * "401 access denied". Using the token that Luban uses seems to work, but may not work 
+                 */
+                
+                var response = await httpClient.PostAsync(targetUri, null);
                 string resp = await response.Content.ReadAsStringAsync();
-
                 dynamic parsedResponse = JObject.Parse(resp);
-
                 connectionToken = parsedResponse.token;
-
-                Console.WriteLine("Got token: " + connectionToken);*/
-
-                connectionToken = "5992a781-9082-4ff4-8821-91fa0a0bd545";
-
+                Console.WriteLine("Got token: " + connectionToken);
+                
                 var content = new Dictionary<string, string>();
                 content.Add("token", connectionToken);
 
-                // Do the actual request and await the response
                 var httpResponse = await httpClient.PostAsync(targetUri, new FormUrlEncodedContent(content));
 
                 return true;
@@ -64,38 +69,44 @@ namespace SnapmakerControl
             }
         }
 
-        public bool Disconnect()
+        public void Disconnect()
         {
-            throw new NotImplementedException();
+            httpClient.Dispose();
         }
 
+        /*
+         * Constructs POST request for GCode and sends to Snapmaker API.
+         */
         private async Task<bool> PostCommand(PrinterGCodeCommand command)
         {
+            if (connectionToken == null)
+                return false;
+
             var targetUri = "http://" + TargetAddress + ":8080/api/v1/execute_code";
 
             var content = new Dictionary<string, string>();
-            //content.Add("token", command.token);
-            content.Add("token", "5992a781-9082-4ff4-8821-91fa0a0bd545");
+            content.Add("token", connectionToken);
             content.Add("code", command.code);
 
-            //var httpContent = new FormUrlEncodedContent(content);
-
-            // Do the actual request and await the response
             var httpResponse = await httpClient.PostAsync(targetUri, new FormUrlEncodedContent(content));
 
-            // If the response contains content we want to read it!
+            // Currently not interested in the response.
             if (httpResponse.Content != null)
             {
-                var responseContent = await httpResponse.Content.ReadAsStringAsync();
+                _ = await httpResponse.Content.ReadAsStringAsync();
                 return true;
             }
 
             return false;
         }
 
+        /*
+         *  Method to construct the GCode for the required movement.
+         *  Moves the target axis/axes by the specified amount.
+         */
         public bool MovePrinter(IPrinterConnection.MovementAxis axes, double amount)
         {
-            if (!IsConnected())
+            if (!IsConnected() || connectionToken == null)
                 return false;
 
             PrinterGCodeCommand relativeCommand;

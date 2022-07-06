@@ -23,6 +23,9 @@ namespace SnapmakerControl
             comPort = port;
         }
 
+        /*
+         *  Connect using Snapmaker's default serial port settings.
+         */
         public bool Connect()
         {
             try
@@ -34,26 +37,37 @@ namespace SnapmakerControl
             }
             catch
             {
-                Console.WriteLine("Failed to connect to COM4");
+                Console.WriteLine("Failed to connect to " + comPort);
                 return false;
             }
         }
 
-        public bool Disconnect()
+        public void Disconnect()
         {
-            throw new NotImplementedException();
+            if(port != null)
+                port.Close();
         }
 
         public bool IsConnected()
         {
-            return port.IsOpen;
+            if (port != null)
+                return port.IsOpen;
+            else
+                return false;
         }
 
+        /*
+         *  Send the constructed GCode over the serial port.
+         *  Exceptions are printed rather than thrown; as they may be "non-fatal".
+         */
         private bool PostCommand(PrinterGCodeCommand command)
         {
+            if (port == null || !IsConnected())
+                return false; 
+
             try
             {
-                Console.WriteLine("Write: " + command.code);
+                // Console.WriteLine("Write: " + command.code);
                 port.WriteLine(command.code);
                 return true;
             }
@@ -64,15 +78,20 @@ namespace SnapmakerControl
             }
         }
 
+        /*
+         *  Method to construct the GCode for the required movement.
+         *  Moves the target axis/axes by the specified amount.
+         *  Note: Not awaiting/checking OK's from the printer, no need to resend a command given the update rate over serial.
+         */
         public bool MovePrinter(IPrinterConnection.MovementAxis axes, double amount)
         {
-            if (!IsConnected())
+            if (port == null || !IsConnected())
                 return false;
 
             PrinterGCodeCommand relativeCommand;
             relativeCommand.code = "G91";
 
-            var relativeCommandResult = PostCommand(relativeCommand);
+            var firstRelativeCommandResult = PostCommand(relativeCommand);
             var moveCommandResult = true;
 
             List<string> commands = new List<string>();
@@ -94,15 +113,13 @@ namespace SnapmakerControl
             {
                 PrinterGCodeCommand moveCommand;
                 moveCommand.code = command;
-
                 moveCommandResult = PostCommand(moveCommand);
             }
 
             relativeCommand.code = "G90";
+            var secondRelativeCommandResult = PostCommand(relativeCommand);
 
-            relativeCommandResult = PostCommand(relativeCommand);
-
-            return moveCommandResult && relativeCommandResult;
+            return moveCommandResult && firstRelativeCommandResult && secondRelativeCommandResult;
         }
     }
 }
