@@ -1,4 +1,4 @@
-# SnapmakerControl
+# Snapmaker Gamepad Control
 Application that can be used to control your Snapmaker (or any GCode compatible machine over serial) using a gamepad.
 
 Currently it's only possible to connect to printers over a serial connection. The code is largely ready for WiFi support, but the Snapmaker API still needs to be integrated properly.
